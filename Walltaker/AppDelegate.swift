@@ -2,16 +2,20 @@ import Cocoa
 import ActionCableSwift
 import Wallpaper
 import OSLog
+import SwiftUI
 
 class AppDelegate: NSObject, NSApplicationDelegate {
     var statusItem: NSStatusItem!
+    var window: NSWindow!
     let wsLogger = Logger(subsystem: "online.smolcat.walltaker", category: "WebSocket")
 
     var client: ACClient? = nil
     var channel: ACChannel? = nil
     var currentWallpaper: String = ""
     var wallpaperPath: URL? = nil
-    var linkID = 42632 //TODO: Settings screen to make this publically changable
+
+    var linkID = UserDefaults.standard.integer(forKey: "linkID")
+    var wallpaperScale = UserDefaults.standard.string(forKey: "wallpaperScale")
 
     func applicationDidFinishLaunching(_ aNotification: Notification) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -37,7 +41,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func setupMenus() {
         let menu = NSMenu()
-        menu.addItem(NSMenuItem(title: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
+        menu.addItem(NSMenuItem(title: "Settings", action: #selector(showSettings), keyEquivalent: ""))
+        menu.addItem(NSMenuItem.separator())
+        menu.addItem(NSMenuItem(title: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: ""))
         statusItem.menu = menu
     }
 
@@ -60,7 +66,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         let channelOptions = ACChannelOptions(buffering: true, autoSubscribe: true)
         let channel = client.makeChannel(name: "LinkChannel",
-                                         identifier: ["id": 42632],
+                                         identifier: ["id": linkID],
                                          options: channelOptions)
 
         channel.addOnSubscribe { (channel, optionalMessage) in
@@ -93,7 +99,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     }
 
                     // Set the wallpaper in any case, just in case it's been changed another way
-                    try? Wallpaper.set(wallpaperPath.appending(path: wallpaperFileName))
+                    try? Wallpaper.set(wallpaperPath.appending(path: wallpaperFileName),
+                                       scale: Wallpaper.Scale(rawValue: self.wallpaperScale!) ?? .auto)
                     self.currentWallpaper = wallpaperFileName
                 }
             }
@@ -103,5 +110,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         self.channel = channel
         self.client?.connect()
     }
-}
 
+    @objc func showSettings() {
+        window = NSWindow(contentRect: NSMakeRect(0, 0, 300, 300),
+            styleMask: [.closable, .titled],
+            backing: .buffered,
+            defer: false)
+
+        window.title = "Settings"
+        window.center()
+        window.contentView = NSHostingView(rootView: ContentView())
+        window.orderFrontRegardless()
+    }
+}
