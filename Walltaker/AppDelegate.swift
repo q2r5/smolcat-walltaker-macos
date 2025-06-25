@@ -3,11 +3,14 @@ import ActionCableSwift
 import Wallpaper
 import OSLog
 import SwiftUI
+import UserNotifications
 
 class AppDelegate: NSObject, NSApplicationDelegate {
     var statusItem: NSStatusItem!
     var window: NSWindow!
     let wsLogger = Logger(subsystem: "online.smolcat.walltaker", category: "WebSocket")
+    let center = UNUserNotificationCenter.current()
+    var canNotify: Bool = false
 
     var client: ACClient? = nil
     var channel: ACChannel? = nil
@@ -16,11 +19,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     var linkID = UserDefaults.standard.integer(forKey: "linkID")
     var wallpaperScale = UserDefaults.standard.string(forKey: "wallpaperScale")
+    var wallpaperScreen = UserDefaults.standard.string(forKey: "wallpaperScreen")
 
     func applicationDidFinishLaunching(_ aNotification: Notification) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         if let button = statusItem.button {
             button.image = NSImage(systemSymbolName: "photo.circle", accessibilityDescription: "smolcat")
+        }
+
+        center.requestAuthorization(options: [.alert, .sound, .provisional]) { allow, error in
+            if let error {
+                self.wsLogger.error("\(error.localizedDescription)")
+            } else {
+                self.canNotify = allow
+            }
         }
 
         setupMenus()
@@ -70,45 +82,82 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                                          options: channelOptions)
 
         channel.addOnSubscribe { (channel, optionalMessage) in
-            try? channel.sendMessage(actionName: "announce_client", data: ["client": "smolcat-macos"])
+            try? channel.sendMessage(actionName: "announce_client", data: ["client": "smoltaker"])
             try? channel.sendMessage(actionName: "check")
         }
 
         channel.addOnMessage { (channel, optionalMessage) in
-            guard let message = optionalMessage?.message,
-                  let wallpaperPath = self.wallpaperPath else { return }
-
+            guard let message = optionalMessage?.message else { return }
             self.wsLogger.log("\(message, privacy: .public)")
-
-            // Make sure it's a set or check response
-            if let urlString = message["post_url"] as? String,
-               let url = URL(string: urlString) {
-                let wallpaperFileName = url.lastPathComponent
-
-                guard !wallpaperFileName.isEmpty else { return }
-
-                // Make sure the wallpaper actually changed (or on a fresh launch)
-                if wallpaperFileName != self.currentWallpaper {
-                    // If the file already exists, there's no need to redownload it
-                    if !FileManager.default.fileExists(atPath: wallpaperPath.appending(path: wallpaperFileName).path()) {
-                        let imageData = try? Data(contentsOf: url)
-                        if let imageData = imageData {
-                            try? imageData.write(to: wallpaperPath.appending(path: url.lastPathComponent),
-                                                 options: .atomic)
-                        }
-                    }
-
-                    // Set the wallpaper in any case, just in case it's been changed another way
-                    try? Wallpaper.set(wallpaperPath.appending(path: wallpaperFileName),
-                                       scale: Wallpaper.Scale(rawValue: self.wallpaperScale!) ?? .auto)
-                    self.currentWallpaper = wallpaperFileName
-                }
-            }
+            self.updateWallpaper(for: message)
         }
 
         self.client = client
         self.channel = channel
         self.client?.connect()
+    }
+
+    func updateWallpaper(for message: [String: Any]) {
+        guard let urlString = message["post_url"] as? String,
+              let url = URL(string: urlString) else { return }
+
+        let wallpaperFileName = url.lastPathComponent
+
+        guard !wallpaperFileName.isEmpty,
+            let wallpaperPath else { return }
+
+        // Make sure the wallpaper actually changed (or on a fresh launch)
+        if wallpaperFileName != currentWallpaper {
+            // If the file already exists, there's no need to redownload it
+            if !FileManager.default.fileExists(atPath: wallpaperPath.appending(path: wallpaperFileName).path()) {
+                let imageData = try? Data(contentsOf: url)
+                if let imageData = imageData {
+                    try? imageData.write(to: wallpaperPath.appending(path: url.lastPathComponent),
+                                         options: .atomic)
+                }
+            }
+
+            if let wallpapers = try? Wallpaper.get(),
+               wallpapers.contains(where: { $0 == wallpaperPath.appending(path: wallpaperFileName) }) {
+                // This image is already set as the wallpaper, don't bother resetting
+                return
+            }
+
+            var screen = Wallpaper.Screen.all
+            if let wallpaperScreen {
+                switch wallpaperScreen {
+                case "all":
+                    screen = .all
+                case "main":
+                    screen = .main
+                default:
+                    if let screenNumber = Int(wallpaperScreen) {
+                        screen = .index(screenNumber)
+                    } else {
+                        screen = .all
+                    }
+                }
+            }
+
+            // Set the wallpaper in any case, just in case it's been changed another way
+            do {
+                try Wallpaper.set(wallpaperPath.appending(path: wallpaperFileName),
+                                  screen: screen,
+                                  scale: Wallpaper.Scale(rawValue: self.wallpaperScale ?? "auto") ?? .auto)
+                currentWallpaper = wallpaperFileName
+
+                if canNotify {
+                    let notifContent = UNMutableNotificationContent()
+                    notifContent.title = "Wallpaper Set"
+                    notifContent.body = "Set by: \(message["set_by"] ?? "anon")"
+                    center.add(UNNotificationRequest(identifier: "online.smolcat.walltaker.set",
+                                                     content: notifContent,
+                                                     trigger: nil))
+                }
+            } catch {
+                wsLogger.error("\(error.localizedDescription)")
+            }
+        }
     }
 
     @objc func showSettings() {
