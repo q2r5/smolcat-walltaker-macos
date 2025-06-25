@@ -26,6 +26,9 @@ struct ContentView: View {
                             Text(value.rawValue).tag(value)
                         }
                     }
+                    .onReceive(NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)) { _ in
+
+                    }
                 }
                 .formStyle(.grouped)
             }

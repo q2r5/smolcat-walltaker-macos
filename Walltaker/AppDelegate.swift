@@ -14,12 +14,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     var client: ACClient? = nil
     var channel: ACChannel? = nil
-    var currentWallpaper: String = ""
+    var currentWallpaper = ""
     var wallpaperPath: URL? = nil
+    var forceChange = false
 
-    var linkID = UserDefaults.standard.integer(forKey: "linkID")
-    var wallpaperScale = UserDefaults.standard.string(forKey: "wallpaperScale")
-    var wallpaperScreen = UserDefaults.standard.string(forKey: "wallpaperScreen")
+    var linkID: Int {
+        UserDefaults.standard.integer(forKey: "linkID")
+    }
+    var wallpaperScale: String? {
+        UserDefaults.standard.string(forKey: "wallpaperScale")
+    }
+    var wallpaperScreen: String? {
+        UserDefaults.standard.string(forKey: "wallpaperScreen")
+    }
 
     func applicationDidFinishLaunching(_ aNotification: Notification) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -35,6 +42,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
+        UserDefaults.standard.addObserver(self, forKeyPath: "linkID", options: .new, context: nil)
+        UserDefaults.standard.addObserver(self, forKeyPath: "wallpaperScale", options: .new, context: nil)
+        UserDefaults.standard.addObserver(self, forKeyPath: "wallpaperScreen", options: .new, context: nil)
+
         setupMenus()
         createFolders()
         connectToWebsocket()
@@ -48,6 +59,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         files?.forEach {
             if $0.lastPathComponent == currentWallpaper { return }
             try? FileManager.default.removeItem(at: $0)
+        }
+    }
+
+    override func observeValue(forKeyPath keyPath: String?,
+                               of object: Any?,
+                               change: [NSKeyValueChangeKey : Any]?,
+                               context: UnsafeMutableRawPointer?) {
+        if keyPath == "linkID" {
+            client?.disconnect()
+            connectToWebsocket()
+        } else if keyPath == "wallpaperScale" || keyPath == "wallpaperScreen" {
+            forceChange = true
+            try? channel?.sendMessage(actionName: "check")
+        } else {
+            super.observeValue(forKeyPath: keyPath, of: object, change: change, context: context)
         }
     }
 
@@ -107,7 +133,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             let wallpaperPath else { return }
 
         // Make sure the wallpaper actually changed (or on a fresh launch)
-        if wallpaperFileName != currentWallpaper {
+        if forceChange || wallpaperFileName != currentWallpaper {
             // If the file already exists, there's no need to redownload it
             if !FileManager.default.fileExists(atPath: wallpaperPath.appending(path: wallpaperFileName).path()) {
                 let imageData = try? Data(contentsOf: url)
@@ -117,7 +143,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 }
             }
 
-            if let wallpapers = try? Wallpaper.get(),
+            if !forceChange,
+               let wallpapers = try? Wallpaper.get(),
                wallpapers.contains(where: { $0 == wallpaperPath.appending(path: wallpaperFileName) }) {
                 // This image is already set as the wallpaper, don't bother resetting
                 return
@@ -143,8 +170,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             do {
                 try Wallpaper.set(wallpaperPath.appending(path: wallpaperFileName),
                                   screen: screen,
-                                  scale: Wallpaper.Scale(rawValue: self.wallpaperScale ?? "auto") ?? .auto)
+                                  scale: Wallpaper.Scale(rawValue: wallpaperScale ?? "auto") ?? .auto)
                 currentWallpaper = wallpaperFileName
+                forceChange = false
 
                 if canNotify {
                     let notifContent = UNMutableNotificationContent()
