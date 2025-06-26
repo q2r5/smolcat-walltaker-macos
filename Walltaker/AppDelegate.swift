@@ -7,7 +7,7 @@ import UserNotifications
 
 class AppDelegate: NSObject, NSApplicationDelegate {
     var statusItem: NSStatusItem!
-    var window: NSWindow!
+    var windowController: NSWindowController!
     let wsLogger = Logger(subsystem: "online.smolcat.walltaker", category: "WebSocket")
     let center = UNUserNotificationCenter.current()
     var canNotify: Bool = false
@@ -46,6 +46,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         UserDefaults.standard.addObserver(self, forKeyPath: "wallpaperScale", options: .new, context: nil)
         UserDefaults.standard.addObserver(self, forKeyPath: "wallpaperScreen", options: .new, context: nil)
 
+        windowController = NSWindowController()
         setupMenus()
         createFolders()
         connectToWebsocket()
@@ -189,14 +190,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc func showSettings() {
-        window = NSWindow(contentRect: NSMakeRect(0, 0, 300, 300),
-            styleMask: [.closable, .titled],
-            backing: .buffered,
-            defer: false)
-
+        let window = NSWindow(contentRect: NSMakeRect(0, 0, 300, 300),
+                              styleMask: [.closable, .titled],
+                              backing: .buffered,
+                              defer: false)
         window.title = "Settings"
         window.center()
         window.contentView = NSHostingView(rootView: ContentView())
-        window.orderFrontRegardless()
+        windowController.window = window
+        windowController.showWindow(nil)
     }
 }
