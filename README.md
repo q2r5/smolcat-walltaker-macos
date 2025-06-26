@@ -2,9 +2,9 @@
 
 A super simple [Walltaker](https://walltaker.joi.how/) client for MacOS using the WebSocket API.
 
-Currently depends on MacOS Tahoe 26, but can be laxed if there's any interest.
+macOS 13.5+
 
 TODO:
-- [ ]  Settings screen to set Link ID, wallpaper formatting (fit, fill, etc)
-- [ ]  Notifications on change
+- [x]  Settings screen to set Link ID, wallpaper formatting (fit, fill, etc)
+- [x]  Notifications on change
 - [ ]  Per screen Links?

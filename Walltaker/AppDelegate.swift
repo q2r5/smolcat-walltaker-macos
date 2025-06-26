@@ -31,7 +31,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ aNotification: Notification) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         if let button = statusItem.button {
-            button.image = NSImage(systemSymbolName: "photo.circle", accessibilityDescription: "smolcat")
+            button.image = NSImage(systemSymbolName: "photo.circle", accessibilityDescription: "smoltaker")
         }
 
         center.requestAuthorization(options: [.alert, .sound, .provisional]) { allow, error in

@@ -12,7 +12,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		DA3459072E0A38E8003570D2 /* Walltaker.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Walltaker.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		DA3459072E0A38E8003570D2 /* smoltaker.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = smoltaker.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -47,7 +47,7 @@
 		DA3459082E0A38E8003570D2 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				DA3459072E0A38E8003570D2 /* Walltaker.app */,
+				DA3459072E0A38E8003570D2 /* smoltaker.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -55,9 +55,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		DA3459062E0A38E8003570D2 /* Walltaker */ = {
+		DA3459062E0A38E8003570D2 /* smoltaker */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = DA3459152E0A38E9003570D2 /* Build configuration list for PBXNativeTarget "Walltaker" */;
+			buildConfigurationList = DA3459152E0A38E9003570D2 /* Build configuration list for PBXNativeTarget "smoltaker" */;
 			buildPhases = (
 				DA3459032E0A38E8003570D2 /* Sources */,
 				DA3459042E0A38E8003570D2 /* Frameworks */,
@@ -70,13 +70,13 @@
 			fileSystemSynchronizedGroups = (
 				DA3459092E0A38E8003570D2 /* Walltaker */,
 			);
-			name = Walltaker;
+			name = smoltaker;
 			packageProductDependencies = (
 				DA3459172E0A3920003570D2 /* ActionCableSwift */,
 				DA34591A2E0A396A003570D2 /* Wallpaper */,
 			);
 			productName = Walltaker;
-			productReference = DA3459072E0A38E8003570D2 /* Walltaker.app */;
+			productReference = DA3459072E0A38E8003570D2 /* smoltaker.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -112,7 +112,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				DA3459062E0A38E8003570D2 /* Walltaker */,
+				DA3459062E0A38E8003570D2 /* smoltaker */,
 			);
 		};
 /* End PBXProject section */
@@ -156,10 +156,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ASSETCATALOG_COMPILER_APPICON_NAME = smolcat;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
@@ -233,8 +233,8 @@
 					"@executable_path/../Frameworks",
 				);
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 1.0;
+				MACOSX_DEPLOYMENT_TARGET = 13.5;
+				MARKETING_VERSION = 0.0.1;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -256,10 +256,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ASSETCATALOG_COMPILER_APPICON_NAME = smolcat;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
@@ -327,8 +327,8 @@
 					"@executable_path/../Frameworks",
 				);
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 1.0;
+				MACOSX_DEPLOYMENT_TARGET = 13.5;
+				MARKETING_VERSION = 0.0.1;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = online.smolcat.Walltaker;
@@ -356,7 +356,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		DA3459152E0A38E9003570D2 /* Build configuration list for PBXNativeTarget "Walltaker" */ = {
+		DA3459152E0A38E9003570D2 /* Build configuration list for PBXNativeTarget "smoltaker" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				DA3459132E0A38E9003570D2 /* Debug */,
