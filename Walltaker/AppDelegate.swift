@@ -116,7 +116,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         channel.addOnMessage { (channel, optionalMessage) in
             guard let message = optionalMessage?.message else { return }
             self.wsLogger.log("\(message, privacy: .public)")
-            self.updateWallpaper(for: message)
+
+            // If for some reason we get an error, force a recheck.
+            if message["success"] as? Int == 0 {
+                try? channel.sendMessage(actionName: "check")
+            } else {
+                self.updateWallpaper(for: message)
+            }
         }
 
         self.client = client
