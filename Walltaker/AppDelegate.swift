@@ -46,6 +46,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         UserDefaults.standard.addObserver(self, forKeyPath: "wallpaperScale", options: .new, context: nil)
         UserDefaults.standard.addObserver(self, forKeyPath: "wallpaperScreen", options: .new, context: nil)
 
+        NSWorkspace.shared.notificationCenter.addObserver(self,
+                                                          selector: #selector(wakeFromSleep),
+                                                          name: NSWorkspace.didWakeNotification,
+                                                          object: nil)
+
+        NSWorkspace.shared.notificationCenter.addObserver(self,
+                                                          selector: #selector(willSwitchScenes),
+                                                          name: NSWorkspace.activeSpaceDidChangeNotification,
+                                                          object: nil)
+
         windowController = NSWindowController()
         setupMenus()
         createFolders()
@@ -195,7 +205,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    @objc func showSettings() {
+    @objc
+    func showSettings() {
         let window = NSWindow(contentRect: NSMakeRect(0, 0, 300, 300),
                               styleMask: [.closable, .titled],
                               backing: .buffered,
@@ -205,5 +216,22 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         window.contentView = NSHostingView(rootView: ContentView())
         windowController.window = window
         windowController.showWindow(nil)
+    }
+
+    @objc
+    func wakeFromSleep() {
+       guard let client,
+             !client.isConnected else { return }
+
+        client.connect()
+    }
+
+    @objc
+    func willSwitchScenes() {
+        guard let client,
+              client.isConnected,
+              let channel  else { return }
+
+        try? channel.sendMessage(actionName: "check")
     }
 }
