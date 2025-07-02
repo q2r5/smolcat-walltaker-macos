@@ -10,13 +10,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
     var statusItem: NSStatusItem!
     var windowController: NSWindowController!
     let wsLogger = Logger(subsystem: "online.smolcat.walltaker", category: "WebSocket")
-    let center = UNUserNotificationCenter.current()
-    var canNotify: Bool = false
 
     var client: ACClient? = nil
     var channel: ACChannel? = nil
+
     var currentWallpaper = ""
     var wallpaperPath: URL? = nil
+
+    var canNotify = false
     var forceChange = false
     var skipNotif = false
 
@@ -33,15 +34,16 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         UserDefaults.standard.string(forKey: "apiKey")
     }
 
+    // MARK: - Lifecycle
     func applicationDidFinishLaunching(_ aNotification: Notification) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         if let button = statusItem.button {
             button.image = NSImage(systemSymbolName: "photo.circle", accessibilityDescription: "smoltaker")
         }
 
-        center.delegate = self
+        UNUserNotificationCenter.current().delegate = self
 
-        center.requestAuthorization(options: [.alert, .sound, .provisional]) { allow, error in
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .provisional]) { allow, error in
             if let error {
                 self.wsLogger.error("\(error.localizedDescription)")
             } else {
@@ -72,6 +74,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
     }
 
     func applicationWillTerminate(_ aNotification: Notification) {
+        client?.disconnect()
+
         // Clean up old wallpapers on close
         guard let wallpaperPath else { return }
         let files = try? FileManager.default.contentsOfDirectory(at: wallpaperPath,
@@ -98,6 +102,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
             super.observeValue(forKeyPath: keyPath, of: object, change: change, context: context)
         }
     }
+
+    // MARK: - Setup
 
     func setupMenus() {
         let menu = NSMenu()
@@ -139,6 +145,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
             self.wsLogger.log("\(message, privacy: .public)")
 
             // If for some reason we get an error, force a recheck.
+            // (temp workaround for: https://github.com/pupgray/walltaker/pull/65)
             if message["success"] as? Int == 0 {
                 try? channel.sendMessage(actionName: "check")
             } else {
@@ -206,9 +213,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
                     notifContent.title = "Wallpaper Set"
                     notifContent.body = "Set by: \(message["set_by"] ?? "anon")"
                     notifContent.categoryIdentifier = "WALLPAPER_CHANGED"
-                    center.add(UNNotificationRequest(identifier: "online.smolcat.walltaker.set",
-                                                     content: notifContent,
-                                                     trigger: nil))
+                    UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: "online.smolcat.walltaker.set",
+                                                                                 content: notifContent,
+                                                                                 trigger: nil))
                 }
 
                 skipNotif = false
@@ -218,6 +225,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
             }
         }
     }
+
+    // MARK: - Selectors
 
     @objc
     func showSettings() {
@@ -259,6 +268,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         try? channel.sendMessage(actionName: "check")
     }
 
+    // MARK: - Response
+
     enum ResponseType: String {
         case horny
         case disgust
@@ -284,12 +295,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         URLSession.shared.uploadTask(with: request, from: postData).resume()
     }
 
+    // MARK: - Notifications
+
     func registerNotifications() {
         guard let apiKey,
               !apiKey.isEmpty else { return }
 
         let hornyAction = UNNotificationAction(identifier: "HORNY_ACTION",
-                                                title: "Love it")
+                                               title: "Love it")
         let disgustAction = UNNotificationAction(identifier: "DISGUST_ACTION",
                                                  title: "Hate it",
                                                  options: [.destructive])
@@ -303,8 +316,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
               hiddenPreviewsBodyPlaceholder: "",
               options: .customDismissAction)
 
-        let notificationCenter = UNUserNotificationCenter.current()
-        notificationCenter.setNotificationCategories([wallpaperChangedCategory])
+        UNUserNotificationCenter.current().setNotificationCategories([wallpaperChangedCategory])
     }
 
     func userNotificationCenter(_ center: UNUserNotificationCenter,
