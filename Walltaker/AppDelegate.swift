@@ -5,7 +5,8 @@ import OSLog
 import SwiftUI
 import UserNotifications
 
-class AppDelegate: NSObject, NSApplicationDelegate {
+
+class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
     var statusItem: NSStatusItem!
     var windowController: NSWindowController!
     let wsLogger = Logger(subsystem: "online.smolcat.walltaker", category: "WebSocket")
@@ -17,6 +18,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var currentWallpaper = ""
     var wallpaperPath: URL? = nil
     var forceChange = false
+    var skipNotif = false
 
     var linkID: Int {
         UserDefaults.standard.integer(forKey: "linkID")
@@ -27,6 +29,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var wallpaperScreen: String? {
         UserDefaults.standard.string(forKey: "wallpaperScreen")
     }
+    var apiKey: String? {
+        UserDefaults.standard.string(forKey: "apiKey")
+    }
 
     func applicationDidFinishLaunching(_ aNotification: Notification) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -34,17 +39,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             button.image = NSImage(systemSymbolName: "photo.circle", accessibilityDescription: "smoltaker")
         }
 
+        center.delegate = self
+
         center.requestAuthorization(options: [.alert, .sound, .provisional]) { allow, error in
             if let error {
                 self.wsLogger.error("\(error.localizedDescription)")
             } else {
                 self.canNotify = allow
+                self.registerNotifications()
             }
         }
 
         UserDefaults.standard.addObserver(self, forKeyPath: "linkID", options: .new, context: nil)
         UserDefaults.standard.addObserver(self, forKeyPath: "wallpaperScale", options: .new, context: nil)
         UserDefaults.standard.addObserver(self, forKeyPath: "wallpaperScreen", options: .new, context: nil)
+        UserDefaults.standard.addObserver(self, forKeyPath: "apiKey", options: .new, context: nil)
 
         NSWorkspace.shared.notificationCenter.addObserver(self,
                                                           selector: #selector(wakeFromSleep),
@@ -83,6 +92,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         } else if keyPath == "wallpaperScale" || keyPath == "wallpaperScreen" {
             forceChange = true
             try? channel?.sendMessage(actionName: "check")
+        } else if keyPath == "apiKey" {
+            registerNotifications()
         } else {
             super.observeValue(forKeyPath: keyPath, of: object, change: change, context: context)
         }
@@ -113,13 +124,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let clientOptions = ACClientOptions(debug: false, reconnect: true)
         let client = ACClient(stringURL: "wss://walltaker.joi.how/cable", options: clientOptions)
 
-        let channelOptions = ACChannelOptions(buffering: true, autoSubscribe: true)
+        let channelOptions = ACChannelOptions(buffering: false, autoSubscribe: true)
         let channel = client.makeChannel(name: "LinkChannel",
                                          identifier: ["id": linkID],
                                          options: channelOptions)
 
         channel.addOnSubscribe { (channel, optionalMessage) in
-            try? channel.sendMessage(actionName: "announce_client", data: ["client": "smoltaker"])
+            try? channel.sendMessage(actionName: "announce_client", data: ["client": "CFNetwork/smoltaker"])
             try? channel.sendMessage(actionName: "check")
         }
 
@@ -183,22 +194,25 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 }
             }
 
-            // Set the wallpaper in any case, just in case it's been changed another way
+            // Set the wallpaper in any case
             do {
                 try Wallpaper.set(wallpaperPath.appending(path: wallpaperFileName),
                                   screen: screen,
                                   scale: Wallpaper.Scale(rawValue: wallpaperScale ?? "auto") ?? .auto)
                 currentWallpaper = wallpaperFileName
-                forceChange = false
 
-                if canNotify {
+                if canNotify, !skipNotif {
                     let notifContent = UNMutableNotificationContent()
                     notifContent.title = "Wallpaper Set"
                     notifContent.body = "Set by: \(message["set_by"] ?? "anon")"
+                    notifContent.categoryIdentifier = "WALLPAPER_CHANGED"
                     center.add(UNNotificationRequest(identifier: "online.smolcat.walltaker.set",
                                                      content: notifContent,
                                                      trigger: nil))
                 }
+
+                skipNotif = false
+                forceChange = false
             } catch {
                 wsLogger.error("\(error.localizedDescription)")
             }
@@ -207,31 +221,112 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc
     func showSettings() {
-        let window = NSWindow(contentRect: NSMakeRect(0, 0, 300, 300),
-                              styleMask: [.closable, .titled],
-                              backing: .buffered,
-                              defer: false)
+        guard windowController.window == nil else {
+            windowController.window?.makeKeyAndOrderFront(nil)
+            return
+        }
+
+        let window = NSWindow(contentViewController: NSHostingController(rootView: ContentView()))
+        window.styleMask = [.titled, .closable]
+        window.contentViewController?.preferredContentSize = NSSize(width: 300, height: 400)
         window.title = "Settings"
         window.center()
-        window.contentView = NSHostingView(rootView: ContentView())
         windowController.window = window
         windowController.showWindow(nil)
+        window.makeKeyAndOrderFront(nil)
     }
 
     @objc
     func wakeFromSleep() {
-       guard let client,
-             !client.isConnected else { return }
+        guard let client,
+              client.isConnected,
+              let channel  else { return }
 
-        client.connect()
+        try? channel.sendMessage(actionName: "check")
     }
 
     @objc
     func willSwitchScenes() {
         guard let client,
               client.isConnected,
-              let channel  else { return }
+              let channel,
+              channel.isSubscribed,
+              let wallpaperPath,
+              let wallpapers = try? Wallpaper.get(),
+              wallpapers.contains(where: { $0 == wallpaperPath.appending(path: currentWallpaper) }) else { return }
 
+        skipNotif = true
         try? channel.sendMessage(actionName: "check")
+    }
+
+    enum ResponseType: String {
+        case horny
+        case disgust
+        case came
+    }
+
+    func postResponse(response: ResponseType) {
+        guard let url = URL(string: "https://walltaker.joi.how/api/links/\(linkID)/response.json"),
+              let apiKey else { return }
+
+        let postArray: [String:String] = ["api_key": apiKey,
+                                          "type": response.rawValue,
+                                          "text": ""]
+
+        guard let postData = try? JSONEncoder().encode(postArray) else {
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        URLSession.shared.uploadTask(with: request, from: postData).resume()
+    }
+
+    func registerNotifications() {
+        guard let apiKey,
+              !apiKey.isEmpty else { return }
+
+        let hornyAction = UNNotificationAction(identifier: "HORNY_ACTION",
+                                                title: "Love it")
+        let disgustAction = UNNotificationAction(identifier: "DISGUST_ACTION",
+                                                 title: "Hate it",
+                                                 options: [.destructive])
+        let cameAction = UNNotificationAction(identifier: "CAME_ACTION",
+                                              title: "Came")
+
+        let wallpaperChangedCategory =
+              UNNotificationCategory(identifier: "WALLPAPER_CHANGED",
+              actions: [hornyAction, disgustAction, cameAction],
+              intentIdentifiers: [],
+              hiddenPreviewsBodyPlaceholder: "",
+              options: .customDismissAction)
+
+        let notificationCenter = UNUserNotificationCenter.current()
+        notificationCenter.setNotificationCategories([wallpaperChangedCategory])
+    }
+
+    func userNotificationCenter(_ center: UNUserNotificationCenter,
+                                didReceive response: UNNotificationResponse,
+                                withCompletionHandler completionHandler: @escaping () -> Void) {
+       switch response.actionIdentifier {
+       case "HORNY_ACTION":
+           postResponse(response: .horny)
+           break
+
+       case "DISGUST_ACTION":
+           postResponse(response: .disgust)
+           break
+
+       case "CAME_ACTION":
+           postResponse(response: .came)
+           break
+
+       default:
+           break
+       }
+
+       completionHandler()
     }
 }
