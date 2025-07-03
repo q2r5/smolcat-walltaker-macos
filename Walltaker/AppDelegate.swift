@@ -5,7 +5,7 @@ import OSLog
 import SwiftUI
 import UserNotifications
 
-
+@main
 class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
     var statusItem: NSStatusItem!
     var windowController: NSWindowController!
@@ -18,8 +18,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
     var wallpaperPath: URL? = nil
 
     var canNotify = false
-    var forceChange = false
-    var skipNotif = false
 
     var linkID: Int {
         UserDefaults.standard.integer(forKey: "linkID")
@@ -94,8 +92,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
             client?.disconnect()
             connectToWebsocket()
         } else if keyPath == "wallpaperScale" || keyPath == "wallpaperScreen" {
-            forceChange = true
-            try? channel?.sendMessage(actionName: "check")
+            try? setWallpaper(for: currentWallpaper, force: true)
         } else if keyPath == "apiKey" {
             registerNotifications()
         } else {
@@ -127,6 +124,16 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
     }
 
     func connectToWebsocket() {
+        // I don't think this is occuring, but play it safe for now.
+        guard client == nil else {
+            wsLogger.error("client not nil")
+            if client?.isConnected ?? false {
+                return
+            }
+            client?.connect()
+            return
+        }
+
         let clientOptions = ACClientOptions(debug: false, reconnect: true)
         let client = ACClient(stringURL: "wss://walltaker.joi.how/cable", options: clientOptions)
 
@@ -145,85 +152,90 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
             self.wsLogger.log("\(message, privacy: .public)")
 
             // If for some reason we get an error, force a recheck.
-            // (temp workaround for: https://github.com/pupgray/walltaker/pull/65)
+            // (temp workaround for until https://github.com/pupgray/walltaker/pull/65 lands)
             if message["success"] as? Int == 0 {
                 try? channel.sendMessage(actionName: "check")
             } else {
-                self.updateWallpaper(for: message)
+                self.parse(message)
             }
         }
 
         self.client = client
         self.channel = channel
-        self.client?.connect()
     }
 
-    func updateWallpaper(for message: [String: Any]) {
+    func parse(_ message: [String: Any]) {
         guard let urlString = message["post_url"] as? String,
               let url = URL(string: urlString) else { return }
 
+        let originalWallpaper = currentWallpaper
         let wallpaperFileName = url.lastPathComponent
 
         guard !wallpaperFileName.isEmpty,
-            let wallpaperPath else { return }
+              let wallpaperPath else { return }
 
-        // Make sure the wallpaper actually changed (or on a fresh launch)
-        if forceChange || wallpaperFileName != currentWallpaper {
-            // If the file already exists, there's no need to redownload it
-            if !FileManager.default.fileExists(atPath: wallpaperPath.appending(path: wallpaperFileName).path()) {
-                let imageData = try? Data(contentsOf: url)
-                if let imageData = imageData {
-                    try? imageData.write(to: wallpaperPath.appending(path: url.lastPathComponent),
-                                         options: .atomic)
-                }
-            }
-
-            if !forceChange,
-               let wallpapers = try? Wallpaper.get(),
-               wallpapers.contains(where: { $0 == wallpaperPath.appending(path: wallpaperFileName) }) {
-                // This image is already set as the wallpaper, don't bother resetting
-                return
-            }
-
-            var screen = Wallpaper.Screen.all
-            if let wallpaperScreen {
-                switch wallpaperScreen {
-                case "all":
-                    screen = .all
-                case "main":
-                    screen = .main
-                default:
-                    if let screenNumber = Int(wallpaperScreen) {
-                        screen = .index(screenNumber)
-                    } else {
-                        screen = .all
-                    }
-                }
-            }
-
-            // Set the wallpaper in any case
-            do {
-                try Wallpaper.set(wallpaperPath.appending(path: wallpaperFileName),
-                                  screen: screen,
-                                  scale: Wallpaper.Scale(rawValue: wallpaperScale ?? "auto") ?? .auto)
-                currentWallpaper = wallpaperFileName
-
-                if canNotify, !skipNotif {
-                    let notifContent = UNMutableNotificationContent()
-                    notifContent.title = "Wallpaper Set"
-                    notifContent.body = "Set by: \(message["set_by"] ?? "anon")"
-                    notifContent.categoryIdentifier = "WALLPAPER_CHANGED"
-                    UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: "online.smolcat.walltaker.set",
-                                                                                 content: notifContent,
-                                                                                 trigger: nil))
-                }
-
-                skipNotif = false
-                forceChange = false
-            } catch {
-                wsLogger.error("\(error.localizedDescription)")
+        // If the file already exists, there's no need to redownload it
+        if !FileManager.default.fileExists(atPath: wallpaperPath.appending(path: wallpaperFileName).path()) {
+            let imageData = try? Data(contentsOf: url)
+            if let imageData = imageData {
+                try? imageData.write(to: wallpaperPath.appending(path: url.lastPathComponent),
+                                     options: .atomic)
             }
         }
+
+        do {
+            try setWallpaper(for: wallpaperFileName)
+
+            if canNotify,
+               originalWallpaper != wallpaperFileName {
+                let notifContent = UNMutableNotificationContent()
+                notifContent.title = "Wallpaper Set"
+                notifContent.body = "Set by: \(message["set_by"] ?? "anon")"
+                notifContent.categoryIdentifier = "WALLPAPER_CHANGED"
+                UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: "online.smolcat.walltaker.set",
+                                                                             content: notifContent,
+                                                                             trigger: nil))
+            }
+        } catch {
+            wsLogger.error("\(error.localizedDescription)")
+        }
+    }
+
+    func setWallpaper(for fileName: String, force: Bool = false) throws {
+        guard let wallpaperPath else {
+            return
+        }
+
+        let wallpapers = try Wallpaper.get()
+        if !force,
+           wallpapers.contains(where: { $0 == wallpaperPath.appending(path: fileName) }) {
+            // This image is already set as the wallpaper, don't bother resetting
+            if currentWallpaper.isEmpty {
+                currentWallpaper = fileName
+            }
+            return
+        }
+
+        var screen = Wallpaper.Screen.all
+        if let wallpaperScreen {
+            switch wallpaperScreen {
+            case "all":
+                screen = .all
+            case "main":
+                screen = .main
+            default:
+                if let screenNumber = Int(wallpaperScreen) {
+                    screen = .index(screenNumber)
+                } else {
+                    screen = .all
+                }
+            }
+        }
+
+        try Wallpaper.set(wallpaperPath.appending(path: fileName),
+                          screen: screen,
+                          scale: Wallpaper.Scale(rawValue: wallpaperScale ?? "auto") ?? .auto)
+        currentWallpaper = fileName
     }
 
     // MARK: - Selectors
@@ -249,23 +261,23 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
     func wakeFromSleep() {
         guard let client,
               client.isConnected,
-              let channel  else { return }
+              let channel else {
+            connectToWebsocket()
+            return
+        }
 
         try? channel.sendMessage(actionName: "check")
     }
 
     @objc
     func willSwitchScenes() {
-        guard let client,
-              client.isConnected,
-              let channel,
-              channel.isSubscribed,
-              let wallpaperPath,
-              let wallpapers = try? Wallpaper.get(),
-              wallpapers.contains(where: { $0 == wallpaperPath.appending(path: currentWallpaper) }) else { return }
+        guard !currentWallpaper.isEmpty else { return }
 
-        skipNotif = true
-        try? channel.sendMessage(actionName: "check")
+        do {
+            try setWallpaper(for: currentWallpaper)
+        } catch {
+            wsLogger.error("\(error.localizedDescription)")
+        }
     }
 
     // MARK: - Response
@@ -274,6 +286,20 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         case horny
         case disgust
         case came
+        case ok
+
+        var actionIdentifier: String {
+            switch self {
+            case .horny:
+                return "HORNY_ACTION"
+            case .disgust:
+                return "DISGUST_ACTION"
+            case .came:
+                return "CAME_ACTION"
+            case .ok:
+                return "THANKS_ACTION"
+            }
+        }
     }
 
     func postResponse(response: ResponseType) {
@@ -301,17 +327,19 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         guard let apiKey,
               !apiKey.isEmpty else { return }
 
-        let hornyAction = UNNotificationAction(identifier: "HORNY_ACTION",
+        let hornyAction = UNNotificationAction(identifier: ResponseType.horny.actionIdentifier,
                                                title: "Love it")
-        let disgustAction = UNNotificationAction(identifier: "DISGUST_ACTION",
+        let disgustAction = UNNotificationAction(identifier: ResponseType.disgust.actionIdentifier,
                                                  title: "Hate it",
                                                  options: [.destructive])
-        let cameAction = UNNotificationAction(identifier: "CAME_ACTION",
+        let cameAction = UNNotificationAction(identifier: ResponseType.came.actionIdentifier,
                                               title: "Came")
+        let thanksAction = UNNotificationAction(identifier: ResponseType.ok.actionIdentifier,
+                                                title: "Thanks")
 
         let wallpaperChangedCategory =
               UNNotificationCategory(identifier: "WALLPAPER_CHANGED",
-              actions: [hornyAction, disgustAction, cameAction],
+              actions: [hornyAction, disgustAction, cameAction, thanksAction],
               intentIdentifiers: [],
               hiddenPreviewsBodyPlaceholder: "",
               options: .customDismissAction)
@@ -323,17 +351,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
                                 didReceive response: UNNotificationResponse,
                                 withCompletionHandler completionHandler: @escaping () -> Void) {
        switch response.actionIdentifier {
-       case "HORNY_ACTION":
+       case ResponseType.horny.actionIdentifier:
            postResponse(response: .horny)
-           break
-
-       case "DISGUST_ACTION":
+       case ResponseType.disgust.actionIdentifier:
            postResponse(response: .disgust)
-           break
-
-       case "CAME_ACTION":
+       case ResponseType.came.actionIdentifier:
            postResponse(response: .came)
-           break
+       case ResponseType.ok.actionIdentifier:
+           postResponse(response: .ok)
 
        default:
            break
