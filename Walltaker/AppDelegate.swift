@@ -224,8 +224,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
             case "main":
                 screen = .main
             default:
-                if let screenNumber = Int(wallpaperScreen) {
-                    screen = .index(screenNumber)
+                if let selectedScreen = NSScreen.screens.first(where: { $0.localizedName == wallpaperScreen} ) {
+                    screen = .nsScreens([selectedScreen])
                 } else {
                     screen = .all
                 }

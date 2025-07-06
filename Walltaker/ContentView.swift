@@ -16,9 +16,14 @@ struct ContentView: View {
             TextField("API Key", text: $apiKey)
                 .lineLimit(1)
                 .disableAutocorrection(true)
-            Picker("Screen", selection: $wallpaperScreen) {
-                Text("All").tag("all")
-                Text("Main").tag("main")
+            if NSScreen.screens.count > 1 {
+                Picker("Screen", selection: $wallpaperScreen) {
+                    Text("All").tag("all")
+                    Text("Main").tag("main")
+                    ForEach(NSScreen.screens.map(\.localizedName), id: \.self) { name in
+                        Text(name).tag(name)
+                    }
+                }
             }
             Picker("Scale", selection: $wallpaperScale) {
                 ForEach(Wallpaper.Scale.allCases, id: \.rawValue) { value in
