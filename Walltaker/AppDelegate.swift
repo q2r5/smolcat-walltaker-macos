@@ -72,6 +72,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
     }
 
     func applicationWillTerminate(_ aNotification: Notification) {
+        try? channel?.unsubscribe()
         client?.disconnect()
 
         // Clean up old wallpapers on close
@@ -89,7 +90,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
                                change: [NSKeyValueChangeKey : Any]?,
                                context: UnsafeMutableRawPointer?) {
         if keyPath == "linkID" {
-            client?.disconnect()
+            try? channel?.unsubscribe()
             connectToWebsocket()
         } else if keyPath == "wallpaperScale" || keyPath == "wallpaperScreen" {
             try? setWallpaper(for: currentWallpaper, force: true)
@@ -124,18 +125,15 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
     }
 
     func connectToWebsocket() {
-        // I don't think this is occuring, but play it safe for now.
-        guard client == nil else {
-            wsLogger.error("client not nil")
-            if client?.isConnected ?? false {
-                return
-            }
-            client?.connect()
-            return
+        let client: ACClient
+        if let exisitingClient = self.client {
+            wsLogger.info("Client already exists, reusing")
+            client = exisitingClient
+            try? channel?.unsubscribe()
+        } else {
+            let clientOptions = ACClientOptions(debug: false, reconnect: true)
+            client = ACClient(stringURL: "wss://walltaker.joi.how/cable", options: clientOptions)
         }
-
-        let clientOptions = ACClientOptions(debug: false, reconnect: true)
-        let client = ACClient(stringURL: "wss://walltaker.joi.how/cable", options: clientOptions)
 
         let channelOptions = ACChannelOptions(buffering: false, autoSubscribe: true)
         let channel = client.makeChannel(name: "LinkChannel",
@@ -247,7 +245,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
             return
         }
 
-        let window = NSWindow(contentViewController: NSHostingController(rootView: ContentView()))
+        let window = NSWindow(contentViewController: NSHostingController(rootView: ContentView(editingLinkID: String(linkID))))
         window.styleMask = [.titled, .closable]
         window.contentViewController?.preferredContentSize = NSSize(width: 300, height: 400)
         window.title = "Settings"

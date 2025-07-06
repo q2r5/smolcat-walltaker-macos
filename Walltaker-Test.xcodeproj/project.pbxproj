@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		DA2DEF232E1B383E00ADFB7F /* DebouncedOnChange in Frameworks */ = {isa = PBXBuildFile; productRef = DA2DEF222E1B383E00ADFB7F /* DebouncedOnChange */; };
 		DA3459182E0A3920003570D2 /* ActionCableSwift in Frameworks */ = {isa = PBXBuildFile; productRef = DA3459172E0A3920003570D2 /* ActionCableSwift */; };
 		DA34591B2E0A396A003570D2 /* Wallpaper in Frameworks */ = {isa = PBXBuildFile; productRef = DA34591A2E0A396A003570D2 /* Wallpaper */; };
 /* End PBXBuildFile section */
@@ -29,6 +30,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				DA3459182E0A3920003570D2 /* ActionCableSwift in Frameworks */,
+				DA2DEF232E1B383E00ADFB7F /* DebouncedOnChange in Frameworks */,
 				DA34591B2E0A396A003570D2 /* Wallpaper in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -74,6 +76,7 @@
 			packageProductDependencies = (
 				DA3459172E0A3920003570D2 /* ActionCableSwift */,
 				DA34591A2E0A396A003570D2 /* Wallpaper */,
+				DA2DEF222E1B383E00ADFB7F /* DebouncedOnChange */,
 			);
 			productName = Walltaker;
 			productReference = DA3459072E0A38E8003570D2 /* smoltaker.app */;
@@ -106,6 +109,7 @@
 			packageReferences = (
 				DA3459162E0A3920003570D2 /* XCRemoteSwiftPackageReference "Action-Cable-Swift" */,
 				DA3459192E0A396A003570D2 /* XCRemoteSwiftPackageReference "macos-wallpaper" */,
+				DA2DEF212E1B383E00ADFB7F /* XCRemoteSwiftPackageReference "DebouncedOnChange" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = DA3459082E0A38E8003570D2 /* Products */;
@@ -235,7 +239,7 @@
 				);
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MACOSX_DEPLOYMENT_TARGET = 13.5;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.0.1;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -330,7 +334,7 @@
 				);
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MACOSX_DEPLOYMENT_TARGET = 13.5;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.0.1;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = online.smolcat.Walltaker;
@@ -370,6 +374,14 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		DA2DEF212E1B383E00ADFB7F /* XCRemoteSwiftPackageReference "DebouncedOnChange" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/Tunous/DebouncedOnChange";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.0.0;
+			};
+		};
 		DA3459162E0A3920003570D2 /* XCRemoteSwiftPackageReference "Action-Cable-Swift" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/nerzh/Action-Cable-Swift.git";
@@ -389,6 +401,11 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		DA2DEF222E1B383E00ADFB7F /* DebouncedOnChange */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = DA2DEF212E1B383E00ADFB7F /* XCRemoteSwiftPackageReference "DebouncedOnChange" */;
+			productName = DebouncedOnChange;
+		};
 		DA3459172E0A3920003570D2 /* ActionCableSwift */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = DA3459162E0A3920003570D2 /* XCRemoteSwiftPackageReference "Action-Cable-Swift" */;

@@ -1,5 +1,5 @@
 {
-  "originHash" : "63d884dc9a2d4cae76fda9bb98369a325528feb4b9946abbf839f54d9fb7f2a6",
+  "originHash" : "4277b6c2976d50b35bf793e428c0f040a5aa29a19bd0706bef17c4e3f727bacb",
   "pins" : [
     {
       "identity" : "action-cable-swift",
@@ -8,6 +8,15 @@
       "state" : {
         "revision" : "85b9cdee8cde32bc0a069c623098415aed4597e8",
         "version" : "1.0.1"
+      }
+    },
+    {
+      "identity" : "debouncedonchange",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/Tunous/DebouncedOnChange",
+      "state" : {
+        "revision" : "29a60e088293845364294ebc270831997e2a5873",
+        "version" : "2.0.0"
       }
     },
     {

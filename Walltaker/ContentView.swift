@@ -1,8 +1,10 @@
 import SwiftUI
 import Wallpaper
+import DebouncedOnChange
 
 struct ContentView: View {
     @AppStorage("linkID") private var linkID = "0"
+    @State var editingLinkID = "0"
     @AppStorage("apiKey") private var apiKey = ""
     @AppStorage("wallpaperScale") private var wallpaperScale: Wallpaper.Scale = .auto
     @AppStorage("wallpaperScreen") private var wallpaperScreen = "all"
@@ -10,9 +12,14 @@ struct ContentView: View {
 
     var body: some View {
         Form {
-            TextField("Link ID", text: $linkID)
+            TextField("Link ID", text: $editingLinkID)
                 .lineLimit(1)
                 .disableAutocorrection(true)
+                .onChange(of: editingLinkID, debounceTime: .seconds(1)) { newValue in
+                    if linkID != newValue {
+                        linkID = newValue
+                    }
+                }
             TextField("API Key", text: $apiKey)
                 .lineLimit(1)
                 .disableAutocorrection(true)
