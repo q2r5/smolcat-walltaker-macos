@@ -19,6 +19,16 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 
     var canNotify = false
 
+    var screens: [ScreenInfo] {
+        get {
+            let data = UserDefaults.standard.object(forKey: "screens") as? Data
+            return (try? JSONDecoder().decode([ScreenInfo].self, from: data ?? Data())) ?? []
+        }
+        set {
+            let encodedData = try? JSONEncoder().encode(newValue)
+            UserDefaults.standard.set(encodedData, forKey: "screens")
+        }
+    }
     var linkID: Int {
         UserDefaults.standard.integer(forKey: "linkID")
     }
@@ -50,15 +60,22 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
             }
         }
 
+        if screens.isEmpty {
+           screens = migrate()
+        } else {
+            screens = []
+            screens = migrate()
+        }
+
         UserDefaults.standard.addObserver(self, forKeyPath: "linkID", options: .new, context: nil)
         UserDefaults.standard.addObserver(self, forKeyPath: "wallpaperScale", options: .new, context: nil)
         UserDefaults.standard.addObserver(self, forKeyPath: "wallpaperScreen", options: .new, context: nil)
         UserDefaults.standard.addObserver(self, forKeyPath: "apiKey", options: .new, context: nil)
 
-        NSWorkspace.shared.notificationCenter.addObserver(self,
-                                                          selector: #selector(wakeFromSleep),
-                                                          name: NSWorkspace.didWakeNotification,
-                                                          object: nil)
+//        NSWorkspace.shared.notificationCenter.addObserver(self,
+//                                                          selector: #selector(wakeFromSleep),
+//                                                          name: NSWorkspace.didWakeNotification,
+//                                                          object: nil)
 
         NSWorkspace.shared.notificationCenter.addObserver(self,
                                                           selector: #selector(willSwitchScenes),
@@ -68,7 +85,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         windowController = NSWindowController()
         setupMenus()
         createFolders()
-        connectToWebsocket()
+        initClient()
+        if screens.isEmpty {
+            subscribeToChannel(for: linkID)
+        } else {
+            for screen in screens {
+                subscribeToChannel(for: screen.linkID)
+            }
+        }
     }
 
     func applicationWillTerminate(_ aNotification: Notification) {
@@ -79,7 +103,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         guard let wallpaperPath else { return }
         let files = try? FileManager.default.contentsOfDirectory(at: wallpaperPath,
                                                                  includingPropertiesForKeys: [])
+
+        var currentWallpapers: [String] = []
+        screens.forEach {
+            currentWallpapers.append($0.currentWallpaper)
+        }
+
         files?.forEach {
+            if currentWallpapers.contains($0.lastPathComponent) { return }
             if $0.lastPathComponent == currentWallpaper { return }
             try? FileManager.default.removeItem(at: $0)
         }
@@ -91,9 +122,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
                                context: UnsafeMutableRawPointer?) {
         if keyPath == "linkID" {
             try? channel?.unsubscribe()
-            connectToWebsocket()
+            subscribeToChannel(for: linkID)
         } else if keyPath == "wallpaperScale" || keyPath == "wallpaperScreen" {
-            try? setWallpaper(for: currentWallpaper, force: true)
+            try? setWallpaper(to: currentWallpaper, for: linkID, force: true)
         } else if keyPath == "apiKey" {
             registerNotifications()
         } else {
@@ -124,25 +155,54 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         }
     }
 
-    func connectToWebsocket() {
-        let client: ACClient
-        if let exisitingClient = self.client {
-            wsLogger.info("Client already exists, reusing")
-            client = exisitingClient
-            try? channel?.unsubscribe()
-        } else {
-            let clientOptions = ACClientOptions(debug: false, reconnect: true)
-            client = ACClient(stringURL: "wss://walltaker.joi.how/cable", options: clientOptions)
+    func migrate() -> [ScreenInfo] {
+        guard let wallpaperScale,
+              let wallpaperScreen else {
+            return []
         }
 
-        let channelOptions = ACChannelOptions(buffering: false, autoSubscribe: true)
+        return [ScreenInfo(linkID: linkID,
+                           screenName: wallpaperScreen,
+                           currentWallpaper: "",
+                           currentScale: Wallpaper.Scale(rawValue: wallpaperScale) ?? .auto)]
+    }
+
+    func initClient() {
+        guard client == nil else {
+            return
+        }
+
+        let clientOptions = ACClientOptions(debug: true, reconnect: true)
+        client = ACClient(stringURL: "wss://walltaker.joi.how/cable", options: clientOptions)
+    }
+
+    func subscribeToChannel(for linkID: Int) {
+        guard let client else {
+            wsLogger.error("Attempting to subscribe without a client!")
+            return
+        }
+
+        // Okay for now, will need rethinking for multi-screen (don't want multiple subscriptions to one channel)
+        if let currentChannel = channel {
+            if linkID == currentChannel.identifier["id"] as? Int {
+                return
+            } else {
+                try? currentChannel.unsubscribe()
+            }
+        }
+
+        let channelOptions = ACChannelOptions(buffering: true, autoSubscribe: true)
         let channel = client.makeChannel(name: "LinkChannel",
                                          identifier: ["id": linkID],
                                          options: channelOptions)
 
         channel.addOnSubscribe { (channel, optionalMessage) in
-            try? channel.sendMessage(actionName: "announce_client", data: ["client": "CFNetwork/smoltaker"])
-            try? channel.sendMessage(actionName: "check")
+            do {
+                try channel.sendMessage(actionName: "announce_client", data: ["client": "CFNetwork/smoltaker"])
+                try channel.sendMessage(actionName: "check")
+            } catch {
+                self.wsLogger.error("\(error.localizedDescription)")
+            }
         }
 
         channel.addOnMessage { (channel, optionalMessage) in
@@ -157,14 +217,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
                 self.parse(message)
             }
         }
-
-        self.client = client
         self.channel = channel
     }
 
     func parse(_ message: [String: Any]) {
         guard let urlString = message["post_url"] as? String,
-              let url = URL(string: urlString) else { return }
+              let url = URL(string: urlString),
+              let linkID = message["id"] as? Int else { return }
 
         let originalWallpaper = currentWallpaper
         let wallpaperFileName = url.lastPathComponent
@@ -182,7 +241,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         }
 
         do {
-            try setWallpaper(for: wallpaperFileName)
+            try setWallpaper(to: wallpaperFileName, for: linkID)
 
             if canNotify,
                originalWallpaper != wallpaperFileName {
@@ -199,8 +258,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         }
     }
 
-    func setWallpaper(for fileName: String, force: Bool = false) throws {
+    func setWallpaper(to fileName: String, for linkID: Int, force: Bool = false) throws {
         guard let wallpaperPath else {
+            return
+        }
+
+        guard let idx = screens.firstIndex(where: { $0.linkID == linkID }) else {
             return
         }
 
@@ -215,25 +278,23 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         }
 
         var screen = Wallpaper.Screen.all
-        if let wallpaperScreen {
-            switch wallpaperScreen {
-            case "all":
+        switch screens[idx].screenName {
+        case "all":
+            screen = .all
+        case "main":
+            screen = .main
+        default:
+            if let selectedScreen = NSScreen.screens.first(where: { $0.localizedName == screens[idx].screenName} ) {
+                screen = .nsScreens([selectedScreen])
+            } else {
                 screen = .all
-            case "main":
-                screen = .main
-            default:
-                if let selectedScreen = NSScreen.screens.first(where: { $0.localizedName == wallpaperScreen} ) {
-                    screen = .nsScreens([selectedScreen])
-                } else {
-                    screen = .all
-                }
             }
         }
 
         try Wallpaper.set(wallpaperPath.appending(path: fileName),
                           screen: screen,
-                          scale: Wallpaper.Scale(rawValue: wallpaperScale ?? "auto") ?? .auto)
-        currentWallpaper = fileName
+                          scale: screens[idx].currentScale)
+        screens[idx].currentWallpaper = fileName
     }
 
     // MARK: - Selectors
@@ -255,24 +316,30 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         window.makeKeyAndOrderFront(nil)
     }
 
-    @objc
-    func wakeFromSleep() {
-        guard let client,
-              client.isConnected,
-              let channel else {
-            connectToWebsocket()
-            return
-        }
-
-        try? channel.sendMessage(actionName: "check")
-    }
+//    @objc
+//    func wakeFromSleep() {
+//        guard let client,
+//              client.isConnected,
+//              let channel else {
+//            if screens.isEmpty {
+//                subscribeToChannel(for: linkID)
+//            } else {
+//                for screen in screens {
+//                    subscribeToChannel(for: screen.linkID)
+//                }
+//            }
+//            return
+//        }
+//
+//        try? channel.sendMessage(actionName: "check")
+//    }
 
     @objc
     func willSwitchScenes() {
         guard !currentWallpaper.isEmpty else { return }
 
         do {
-            try setWallpaper(for: currentWallpaper)
+            try setWallpaper(to: currentWallpaper, for: linkID)
         } catch {
             wsLogger.error("\(error.localizedDescription)")
         }
