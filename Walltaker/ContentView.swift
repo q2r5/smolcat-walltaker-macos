@@ -8,42 +8,49 @@ struct ContentView: View {
     @AppStorage("apiKey") private var apiKey = ""
     @AppStorage("wallpaperScale") private var wallpaperScale: Wallpaper.Scale = .auto
     @AppStorage("wallpaperScreen") private var wallpaperScreen = "all"
+    @AppStorage("muted") private var muted = false
     @Environment(\.openURL) private var openURL
 
     var body: some View {
         Form {
-            TextField("Link ID", text: $editingLinkID)
-                .lineLimit(1)
-                .disableAutocorrection(true)
-                .onChange(of: editingLinkID, debounceTime: .seconds(1)) { newValue in
-                    if linkID != newValue {
-                        linkID = newValue
+            Section(header: Text("Settings")) {
+                TextField("Link ID", text: $editingLinkID)
+                    .lineLimit(1)
+                    .disableAutocorrection(true)
+                    .onChange(of: editingLinkID, debounceTime: .seconds(1)) { newValue in
+                        if linkID != newValue {
+                            linkID = newValue
+                        }
+                    }
+                TextField("API Key", text: $apiKey)
+                    .lineLimit(1)
+                    .disableAutocorrection(true)
+            }
+            Section(header: Text("Screen and Scale")) {
+                if NSScreen.screens.count > 1 {
+                    Picker("Screen", selection: $wallpaperScreen) {
+                        Text("All").tag("all")
+                        Text("Main").tag("main")
+                        ForEach(NSScreen.screens.map(\.localizedName), id: \.self) { name in
+                            Text(name).tag(name)
+                        }
                     }
                 }
-            TextField("API Key", text: $apiKey)
-                .lineLimit(1)
-                .disableAutocorrection(true)
-            if NSScreen.screens.count > 1 {
-                Picker("Screen", selection: $wallpaperScreen) {
-                    Text("All").tag("all")
-                    Text("Main").tag("main")
-                    ForEach(NSScreen.screens.map(\.localizedName), id: \.self) { name in
-                        Text(name).tag(name)
+                Picker("Scale", selection: $wallpaperScale) {
+                    ForEach(Wallpaper.Scale.allCases, id: \.rawValue) { value in
+                        Text(value.rawValue).tag(value)
                     }
                 }
             }
-            Picker("Scale", selection: $wallpaperScale) {
-                ForEach(Wallpaper.Scale.allCases, id: \.rawValue) { value in
-                    Text(value.rawValue).tag(value)
-                }
+            Section(header: Text("Video")) {
+                Toggle("Muted", isOn: $muted)
             }
-        }
-        .formStyle(.grouped)
-        Form {
-            Label("\(Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String ?? "App") v\(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "Unknown")", systemImage: "info.circle")
-                .onTapGesture {
-                    openURL(URL(string: "https://github.com/q2r5/smolcat-walltaker-macos")!)
-                }
+            Section {
+                Label("\(Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String ?? "App") v\(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "Unknown")", systemImage: "info.circle")
+                    .onTapGesture {
+                        openURL(URL(string: "https://github.com/q2r5/smolcat-walltaker-macos")!)
+                    }
+            }
         }
         .formStyle(.grouped)
     }

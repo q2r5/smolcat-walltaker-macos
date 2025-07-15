@@ -44,6 +44,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
     var apiKey: String? {
         UserDefaults.standard.string(forKey: "apiKey")
     }
+    var muted: Bool? {
+        UserDefaults.standard.bool(forKey: "muted")
+    }
 
     // MARK: - Lifecycle
     func applicationDidFinishLaunching(_ aNotification: Notification) {
@@ -247,6 +250,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
                 }
             }
 
+            vlcInstance?.terminate()
+
             let utis = UTType.types(tag: fullPath.pathExtension, tagClass: .filenameExtension, conformingTo: nil)
 
             if utis.contains(UTType.jpeg) ||
@@ -254,7 +259,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
                 utis.contains(UTType.bmp) {
                 try setWallpaper(to: wallpaperFileName, for: linkID)
             } else {
-                playVideoWallpaper(fileName: fullPath.path())
+                playVideoWallpaper(fileName: fullPath.path(), isGif: utis.contains(UTType.gif))
             }
 
             if canNotify,
@@ -310,23 +315,19 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 
         try Wallpaper.set(wallpaperPath.appending(path: fileName),
                           screen: screen,
-                          scale: screens[idx].currentScale)
+                          scale: screens[idx].currentScale,
+                          fillColor: .black)
         screens[idx].currentWallpaper = fileName
         currentWallpaper = fileName
     }
 
-    func playVideoWallpaper(fileName: String) {
-        if let vlcInstance {
-            vlcInstance.terminate()
-        }
-
-        sleep(100)
-
+    func playVideoWallpaper(fileName: String, isGif: Bool = false) {
         guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "org.videolan.vlc") else { return }
 
         let configuration = NSWorkspace.OpenConfiguration()
         configuration.activates = false
         configuration.hides = true
+        configuration.addsToRecentItems = false
         configuration.arguments = ["--loop",
                                    "--video-wallpaper",
                                    "--no-mouse-events",
@@ -339,8 +340,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
                                    "--no-keyboard-events",
                                    "--video-title-timeout=0",
                                    "--mouse-hide-timeout=0",
-                                   "--no-audio",
+                                   muted ?? false ? "--no-audio": "",
                                    "--no-video-deco",
+                                   "--no-osd",
+                                   isGif ? "--demux avcodec" : "",
                                    fileName]
         NSWorkspace.shared.openApplication(at: url, configuration: configuration) { app, err in
             if let err {
