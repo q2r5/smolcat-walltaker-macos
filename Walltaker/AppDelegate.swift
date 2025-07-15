@@ -4,6 +4,7 @@ import Wallpaper
 import OSLog
 import SwiftUI
 import UserNotifications
+import UniformTypeIdentifiers
 
 @main
 class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
@@ -16,6 +17,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 
     var currentWallpaper = ""
     var wallpaperPath: URL? = nil
+
+    var vlcInstance: NSRunningApplication? = nil
 
     var canNotify = false
 
@@ -98,6 +101,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
     func applicationWillTerminate(_ aNotification: Notification) {
         try? channel?.unsubscribe()
         client?.disconnect()
+
+        vlcInstance?.terminate()
 
         // Clean up old wallpapers on close
         guard let wallpaperPath else { return }
@@ -231,17 +236,26 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         guard !wallpaperFileName.isEmpty,
               let wallpaperPath else { return }
 
-        // If the file already exists, there's no need to redownload it
-        if !FileManager.default.fileExists(atPath: wallpaperPath.appending(path: wallpaperFileName).path()) {
-            let imageData = try? Data(contentsOf: url)
-            if let imageData = imageData {
-                try? imageData.write(to: wallpaperPath.appending(path: url.lastPathComponent),
-                                     options: .atomic)
-            }
-        }
+        let fullPath = wallpaperPath.appending(path: wallpaperFileName)
 
         do {
-            try setWallpaper(to: wallpaperFileName, for: linkID)
+            // If the file already exists, there's no need to redownload it
+            if !FileManager.default.fileExists(atPath: fullPath.path()) {
+                let imageData = try? Data(contentsOf: url)
+                if let imageData = imageData {
+                    try imageData.write(to: fullPath)
+                }
+            }
+
+            let utis = UTType.types(tag: fullPath.pathExtension, tagClass: .filenameExtension, conformingTo: nil)
+
+            if utis.contains(UTType.jpeg) ||
+                utis.contains(UTType.png) ||
+                utis.contains(UTType.bmp) {
+                try setWallpaper(to: wallpaperFileName, for: linkID)
+            } else {
+                playVideoWallpaper(fileName: fullPath.path())
+            }
 
             if canNotify,
                originalWallpaper != wallpaperFileName {
@@ -263,9 +277,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
             return
         }
 
-        guard let idx = screens.firstIndex(where: { $0.linkID == linkID }) else {
-            return
-        }
+        guard !screens.isEmpty else { return }
+        let idx = 0
+
+//        guard let idx = screens.firstIndex(where: { $0.linkID == linkID }) else {
+//            return
+//        }
 
         let wallpapers = try Wallpaper.get()
         if !force,
@@ -295,6 +312,49 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
                           screen: screen,
                           scale: screens[idx].currentScale)
         screens[idx].currentWallpaper = fileName
+        currentWallpaper = fileName
+    }
+
+    func playVideoWallpaper(fileName: String) {
+        if let vlcInstance {
+            vlcInstance.terminate()
+        }
+
+        sleep(100)
+
+        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "org.videolan.vlc") else { return }
+
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.activates = false
+        configuration.hides = true
+        configuration.arguments = ["--loop",
+                                   "--video-wallpaper",
+                                   "--no-mouse-events",
+                                   "--no-video-title-show",
+                                   "--no-macosx-nativefullscreenmode",
+                                   "--no-macosx-statusicon",
+                                   "--macosx-continue-playback=2",
+                                   "--no-macosx-recentitems",
+                                   "--no-embedded-video",
+                                   "--no-keyboard-events",
+                                   "--video-title-timeout=0",
+                                   "--mouse-hide-timeout=0",
+                                   "--no-audio",
+                                   "--no-video-deco",
+                                   fileName]
+        NSWorkspace.shared.openApplication(at: url, configuration: configuration) { app, err in
+            if let err {
+                self.wsLogger.error("\(err)")
+                return
+            }
+
+            if let app {
+                self.vlcInstance = app
+//                _ = app.hide()
+            }
+        }
+        screens[0].currentWallpaper = fileName
+        currentWallpaper = fileName
     }
 
     // MARK: - Selectors
