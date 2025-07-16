@@ -1,10 +1,10 @@
 # smoltaker
 
-A super simple [Walltaker](https://walltaker.joi.how/) client for MacOS using the WebSocket API.
+A [Walltaker](https://walltaker.joi.how/) client for MacOS using the WebSocket API.
 
-macOS 13.5+
+Requires macOS 13.5+
 
-TODO:
-- [x]  Settings screen to set Link ID, wallpaper formatting (fit, fill, etc)
-- [x]  Notifications on change
-- [ ]  Per screen Links?
+Features:
+* Video wallpapers; requires [VLC](https://www.videolan.org/vlc/)
+* Reactions via notifications; requires API key
+* Scale and Monitor selection

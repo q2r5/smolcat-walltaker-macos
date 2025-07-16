@@ -206,7 +206,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 
         channel.addOnSubscribe { (channel, optionalMessage) in
             do {
-                try channel.sendMessage(actionName: "announce_client", data: ["client": "CFNetwork/smoltaker"])
+                try channel.sendMessage(actionName: "announce_client", data: ["client": "smoltaker"])
                 try channel.sendMessage(actionName: "check")
             } catch {
                 self.wsLogger.error("\(error.localizedDescription)")
