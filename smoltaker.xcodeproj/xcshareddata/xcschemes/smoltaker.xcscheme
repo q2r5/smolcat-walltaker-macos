@@ -18,7 +18,7 @@
                BlueprintIdentifier = "DA3459062E0A38E8003570D2"
                BuildableName = "smoltaker.app"
                BlueprintName = "smoltaker"
-               ReferencedContainer = "container:Walltaker-Test.xcodeproj">
+               ReferencedContainer = "container:smoltaker.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -47,7 +47,7 @@
             BlueprintIdentifier = "DA3459062E0A38E8003570D2"
             BuildableName = "smoltaker.app"
             BlueprintName = "smoltaker"
-            ReferencedContainer = "container:Walltaker-Test.xcodeproj">
+            ReferencedContainer = "container:smoltaker.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>
@@ -64,7 +64,7 @@
             BlueprintIdentifier = "DA3459062E0A38E8003570D2"
             BuildableName = "smoltaker.app"
             BlueprintName = "smoltaker"
-            ReferencedContainer = "container:Walltaker-Test.xcodeproj">
+            ReferencedContainer = "container:smoltaker.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>

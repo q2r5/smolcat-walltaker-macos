@@ -325,26 +325,30 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "org.videolan.vlc") else { return }
 
         let configuration = NSWorkspace.OpenConfiguration()
-        configuration.activates = false
+        configuration.activates = true
         configuration.hides = true
         configuration.addsToRecentItems = false
-        configuration.arguments = ["--loop",
-                                   "--video-wallpaper",
-                                   "--no-mouse-events",
-                                   "--no-video-title-show",
-                                   "--no-macosx-nativefullscreenmode",
-                                   "--no-macosx-statusicon",
-                                   "--macosx-continue-playback=2",
-                                   "--no-macosx-recentitems",
-                                   "--no-embedded-video",
-                                   "--no-keyboard-events",
-                                   "--video-title-timeout=0",
-                                   "--mouse-hide-timeout=0",
-                                   muted ?? false ? "--no-audio": "",
-                                   "--no-video-deco",
-                                   "--no-osd",
-                                   isGif ? "--demux avcodec" : "",
-                                   fileName]
+        var arguments = ["--loop",
+                         "--video-wallpaper",
+                         "--no-mouse-events",
+                         "--no-video-title-show",
+                         "--no-macosx-nativefullscreenmode",
+                         "--no-macosx-statusicon",
+                         "--macosx-continue-playback=2",
+                         "--no-macosx-recentitems",
+                         "--no-embedded-video",
+                         "--no-keyboard-events",
+                         "--video-title-timeout=0",
+                         "--mouse-hide-timeout=0",
+                         fileName]
+        if muted ?? false {
+            arguments.append("--no-audio")
+        }
+
+        if isGif {
+            arguments.append("--demux avcodec")
+        }
+        configuration.arguments = arguments
         NSWorkspace.shared.openApplication(at: url, configuration: configuration) { app, err in
             if let err {
                 self.wsLogger.error("\(err)")
@@ -353,7 +357,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 
             if let app {
                 self.vlcInstance = app
-//                _ = app.hide()
             }
         }
         screens[0].currentWallpaper = fileName
@@ -399,7 +402,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
 
     @objc
     func willSwitchScenes() {
-        guard !currentWallpaper.isEmpty else { return }
+        guard !currentWallpaper.isEmpty,
+              vlcInstance == nil else { return }
 
         do {
             try setWallpaper(to: currentWallpaper, for: linkID)

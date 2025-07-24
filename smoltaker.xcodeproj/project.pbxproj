@@ -17,9 +17,9 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		DA3459092E0A38E8003570D2 /* Walltaker */ = {
+		DA3459092E0A38E8003570D2 /* smoltaker */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = Walltaker;
+			path = smoltaker;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -41,7 +41,7 @@
 		DA3458FA2E0A37D5003570D2 = {
 			isa = PBXGroup;
 			children = (
-				DA3459092E0A38E8003570D2 /* Walltaker */,
+				DA3459092E0A38E8003570D2 /* smoltaker */,
 				DA3459082E0A38E8003570D2 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -70,7 +70,7 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				DA3459092E0A38E8003570D2 /* Walltaker */,
+				DA3459092E0A38E8003570D2 /* smoltaker */,
 			);
 			name = smoltaker;
 			packageProductDependencies = (
@@ -78,7 +78,7 @@
 				DA34591A2E0A396A003570D2 /* Wallpaper */,
 				DA2DEF222E1B383E00ADFB7F /* DebouncedOnChange */,
 			);
-			productName = Walltaker;
+			productName = smoltaker;
 			productReference = DA3459072E0A38E8003570D2 /* smoltaker.app */;
 			productType = "com.apple.product-type.application";
 		};
@@ -97,7 +97,7 @@
 					};
 				};
 			};
-			buildConfigurationList = DA3458FE2E0A37D5003570D2 /* Build configuration list for PBXProject "Walltaker-Test" */;
+			buildConfigurationList = DA3458FE2E0A37D5003570D2 /* Build configuration list for PBXProject "smoltaker" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -353,7 +353,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		DA3458FE2E0A37D5003570D2 /* Build configuration list for PBXProject "Walltaker-Test" */ = {
+		DA3458FE2E0A37D5003570D2 /* Build configuration list for PBXProject "smoltaker" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				DA3458FF2E0A37D5003570D2 /* Debug */,
